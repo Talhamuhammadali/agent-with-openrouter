@@ -9,7 +9,7 @@ load_dotenv()
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 BASE_URL = os.getenv("OPENROUTER_BASE_URL")
 
-def construct_messages(message: str) -> list[dict]:
+def construct_messages(message: str) -> list[dict[str, str]]:
     """Construct the message history for a session with latest message appended."""
     messages = [] # TODO: we add loading history later
     messages.append(
