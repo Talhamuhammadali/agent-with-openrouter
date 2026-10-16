@@ -5,7 +5,7 @@ def main():
     print(get_file_info("calculator", "."))
     print(get_file_info("calculator", "pkg"))
     print(get_file_info("calculator", "../"))
-    print(get_file_info("calculator", "/bin"))
+    print(get_file_info("calculator", "main.py"))
 
 if __name__ == "__main__":
     main()
