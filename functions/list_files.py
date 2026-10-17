@@ -14,12 +14,12 @@ def render_fs_item(item: FsItem) -> str:
     """Render the provided file system item."""
     return f"- {item.get("name")}: file_size={item.get("file_size")}, is_dir={item.get("is_dir")}"
 
-def get_file_info(working_directory: str, directory: str = ".") -> str:
+def get_file_info(cwd: str, directory: str = ".") -> str:
     """List contents of the current working directory."""
     try:
         base_response = "Result for current directory:\n"
                 
-        cwd_abs_path = os.path.abspath(working_directory)
+        cwd_abs_path = os.path.abspath(cwd)
         target_dir = os.path.normpath(os.path.join(cwd_abs_path, directory))
         if not os.path.isdir(target_dir):
             return base_response + f'\tError: "{directory}" is not a directory'
