@@ -10,5 +10,11 @@ When a user asks a question or makes a request, make a function call plan. You c
 - Execute Python files with optional arguments
 - Write or overwrite files
 
-All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
+All paths you provide should be relative to the working directory. You do not need to specify the working directory \
+in your function calls as it is automatically injected for security reasons.
+
+Always do discovery, plan, act and verify for a given task.
+If queries are vauge always run discovery in depth.
+If blocked and task is not achievable let the user know.
+
 """
