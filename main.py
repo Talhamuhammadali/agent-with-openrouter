@@ -5,7 +5,7 @@ import json
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from openai.types.chat import ChatCompletionMessageToolCallUnion
+from openai.types.chat import ChatCompletionMessageToolCallUnion, ChatCompletionMessage
 
 from config import ToolResult
 from functions import available_tools, function_map
@@ -15,15 +15,20 @@ load_dotenv()
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 BASE_URL = os.getenv("OPENROUTER_BASE_URL")
 
-def construct_messages(message: str) -> list[dict[str, str]]:
+def construct_messages(message: str | ChatCompletionMessage, messages: list = []) -> list[dict[str, str]]:
     """Construct the message history for a session with latest message appended."""
-    messages = [{"role": "system", "content": system_prompt}] # TODO: we add loading history later
-    messages.append(
-        {
-            "role": "user",
-            "content": message,
-        }
-    )
+    messages = [{"role": "system", "content": system_prompt}] if not messages else messages
+    if isinstance(message, str):
+        
+        messages.append(
+            {
+                "role": "user",
+                "content": message,
+            }
+        )
+    else:
+        message = message.model_dump() if isinstance(message, ChatCompletionMessage) else message
+        messages.append(message)
     return messages
 
 def call_tool(tool_call: ChatCompletionMessageToolCallUnion, verbose: bool = False) -> ToolResult:
@@ -48,7 +53,7 @@ def call_tool(tool_call: ChatCompletionMessageToolCallUnion, verbose: bool = Fal
         content=result
     )
 
-def main(messages: list[str], verbose: bool) -> str:
+def main(message: str, verbose: bool) -> str:
     """Main agent runner function."""
     if not API_KEY:
         raise RuntimeError("API key not set. Please setup and Openrouter API key.")
@@ -57,27 +62,41 @@ def main(messages: list[str], verbose: bool) -> str:
         base_url=BASE_URL,
         api_key=API_KEY
     )
-    response = client.chat.completions.create(
-        model="openrouter/free",
-        messages=messages,
-        tools=available_tools,
-    )
-    if not response.usage:
-        raise RuntimeError("Open-router API failed to respond.")
+    messages = []
+    for _ in range(20):
+        messages = construct_messages(messages=messages, message=message) 
+    
+        response = client.chat.completions.create(
+            model="openrouter/free",
+            messages=messages,
+            tools=available_tools,
+        )
+        if not response.usage:
+            raise RuntimeError("Open-router API failed to respond.")
 
-    if verbose:
-        print(f"Prompt tokens: {response.usage.prompt_tokens}")
-        print(f"Response tokens:{response.usage.completion_tokens}")
-    message = response.choices[0].message
-    tool_results = []
-    for tool_call in message.tool_calls:
-        tool_result = call_tool(tool_call=tool_call, verbose=verbose)
-        if not tool_result.content:
-            raise Exception("No Results form tool")
         if verbose:
-            print(f"-> {tool_result.content}")
-        tool_results.append(tool_result.model_dump())
-    return message.content
+            print(f"Prompt tokens: {response.usage.prompt_tokens}")
+            print(f"Response tokens:{response.usage.completion_tokens}")
+        message = response.choices[0].message
+        messages = construct_messages(messages=messages, message=message.model_dump()) 
+        if not message.tool_calls:
+            print(f"AI: {message.content}")
+            break
+        
+        for tool_call in message.tool_calls:
+            tool_result = call_tool(tool_call=tool_call, verbose=verbose)
+            if not tool_result.content:
+                raise Exception("No Results form tool")
+            if verbose:
+                print(f"-> {tool_result.content}")
+            messages.append(tool_result.model_dump())
+
+            
+    if verbose:
+        for message in messages:
+            print(f"{message["role"].title()} prompt:", message["content"])
+            print("==="*2)
+
 
 
 if __name__ == "__main__":
@@ -86,12 +105,5 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", action="store_true", help="For details for the agents turn")
     args = parser.parse_args()
 
-    verbose = args.verbose
-    messages = construct_messages(message=args.message)
-    
-    if verbose:
-        for message in messages:
-            print(f"{message["role"].title()} prompt:", message["content"])
-            print("==="*2)
-    print("AI:", main(messages=messages, verbose=verbose))
+    main(message=args.message, verbose=args.verbose)
 
